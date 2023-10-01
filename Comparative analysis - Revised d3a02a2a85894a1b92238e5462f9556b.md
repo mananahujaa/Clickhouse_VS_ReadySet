@@ -504,155 +504,22 @@ Sure, let's elaborate on the paragraph you provided.
 
 ReadySet and ClickHouse are both data warehouses, but they have different performance characteristics. ClickHouse is much faster than ReadySet for both simple and complex queries. For example, the following table shows the results of running the two queries you mentioned on a dataset of 100 million rows:
 
-| S.No: | Query | ClickHouse (ms)-60M rows | ReadySet (ms)-60M rows | ClickHouse Data Scaled Down(ms)- 6M rows | ReadySet 
-Data Scaled Down(ms)- 6M rows | ClickHouse Data Scaled Up(ms)-600M rows | ReadySet
-Data Scaled Upm(s)-600M rows |
-| --- | --- | --- | --- | --- | --- | --- | --- |
-| Q1.1 | SELECT sum(LO_EXTENDEDPRICE * LO_DISCOUNT) AS revenue
-FROM lineorder_flat
-WHERE toYear(LO_ORDERDATE) = 1993 AND LO_DISCOUNT BETWEEN 1 AND 3 AND LO_QUANTITY < 25; | 11.3 | 17.4 | 1.1 | 0.9(Data is cached) | 107 | 221 |
-| Q1.2 | SELECT sum(LO_EXTENDEDPRICE * LO_DISCOUNT) AS revenue
-FROM lineorder_flat
-WHERE toYYYYMM(LO_ORDERDATE) = 199401 AND LO_DISCOUNT BETWEEN 4 AND 6 AND LO_QUANTITY BETWEEN 26 AND 35; | 9.9 | 12.3 | 1 | 0.8 | 105 | 207 |
-| Q1.3 | SELECT sum(LO_EXTENDEDPRICE * LO_DISCOUNT) AS revenue
-FROM lineorder_flat
-WHERE toISOWeek(LO_ORDERDATE) = 6 AND toYear(LO_ORDERDATE) = 1994
-AND LO_DISCOUNT BETWEEN 5 AND 7 AND LO_QUANTITY BETWEEN 26 AND 35; | 10.1 | 11.2 | 1.1 | 0.8 | 107 | 213 |
-|  |  |  |  |  |  |  |  |
-| Q2.1 | SELECT
-sum(LO_REVENUE),
-toYear(LO_ORDERDATE) AS year,
-P_BRAND
-FROM lineorder_flat
-WHERE P_CATEGORY = 'MFGR#12' AND S_REGION = 'AMERICA'
-GROUP BY
-year,
-P_BRAND
-ORDER BY
-year,
-P_BRAND; | 21 | 34 | 2.3 | 3.2 | 149 | 310 |
-| Q2.2 | SELECT
-sum(LO_REVENUE),
-toYear(LO_ORDERDATE) AS year,
-P_BRAND
-FROM lineorder_flat
-WHERE P_BRAND >= 'MFGR#2221' AND P_BRAND <= 'MFGR#2228' AND S_REGION = 'ASIA'
-GROUP BY
-year,
-P_BRAND
-ORDER BY
-year,
-P_BRAND; | 18 | 27 | 1.9 | 2.7 | 135 | 298 |
-| Q2.3 | SELECT
-sum(LO_REVENUE),
-toYear(LO_ORDERDATE) AS year,
-P_BRAND
-FROM lineorder_flat
-WHERE P_BRAND = 'MFGR#2239' AND S_REGION = 'EUROPE'
-GROUP BY
-year,
-P_BRAND
-ORDER BY
-year,
-P_BRAND; | 19 | 24 | 2.1 | 2.2 | 172 | 263 |
-| Q3.1 | SELECT
-C_NATION,
-S_NATION,
-toYear(LO_ORDERDATE) AS year,
-sum(LO_REVENUE) AS revenue
-FROM lineorder_flat
-WHERE C_REGION = 'ASIA' AND S_REGION = 'ASIA' AND year >= 1992 AND year <= 1997
-GROUP BY
-C_NATION,
-S_NATION,
-year
-ORDER BY
-year ASC,
-revenue DESC; | 58 | 71 | 5.3 | 8.2 | 833 = 0.8s | 1744 = 1.7s |
-| Q3.2 | SELECT
-C_CITY,
-S_CITY,
-toYear(LO_ORDERDATE) AS year,
-sum(LO_REVENUE) AS revenue
-FROM lineorder_flat
-WHERE C_NATION = 'UNITED STATES' AND S_NATION = 'UNITED STATES' AND year >= 1992 AND year <= 1997
-GROUP BY
-C_CITY,
-S_CITY,
-year
-ORDER BY
-year ASC,
-revenue DESC; | 51 | 68 | 5.4 | 7.9 | 811=0.8s | 1527=1.5s |
-| Q3.3 | SELECT
-C_CITY,
-S_CITY,
-toYear(LO_ORDERDATE) AS year,
-sum(LO_REVENUE) AS revenue
-FROM lineorder_flat
-WHERE (C_CITY = 'UNITED KI1' OR C_CITY = 'UNITED KI5') AND (S_CITY = 'UNITED KI1' OR S_CITY = 'UNITED KI5') AND year >= 1992 AND year <= 1997
-GROUP BY
-C_CITY,
-S_CITY,
-year
-ORDER BY
-year ASC,
-revenue DESC; | 55 | 67 | 5.3 | 7.7 | 809 | 1552 |
-| Q3.4 | SELECT
-C_CITY,
-S_CITY,
-toYear(LO_ORDERDATE) AS year,
-sum(LO_REVENUE) AS revenue
-FROM lineorder_flat
-WHERE (C_CITY = 'UNITED KI1' OR C_CITY = 'UNITED KI5') AND (S_CITY = 'UNITED KI1' OR S_CITY = 'UNITED KI5') AND toYYYYMM(LO_ORDERDATE) = 199712
-GROUP BY
-C_CITY,
-S_CITY,
-year
-ORDER BY
-year ASC,
-revenue DESC; | 57 | 67 | 5.3 | 7.9 | 810 | 1535 |
-| Q4.1 | SELECT
-toYear(LO_ORDERDATE) AS year,
-C_NATION,
-sum(LO_REVENUE - LO_SUPPLYCOST) AS profit
-FROM lineorder_flat
-WHERE C_REGION = 'AMERICA' AND S_REGION = 'AMERICA' AND (P_MFGR = 'MFGR#1' OR P_MFGR = 'MFGR#2')
-GROUP BY
-year,
-C_NATION
-ORDER BY
-year ASC,
-C_NATION ASC; | 61 | 64 | 7.2 | 11.5 | 846 | 1456 |
-| Q4.2 | SELECT
-toYear(LO_ORDERDATE) AS year,
-S_NATION,
-P_CATEGORY,
-sum(LO_REVENUE - LO_SUPPLYCOST) AS profit
-FROM lineorder_flat
-WHERE C_REGION = 'AMERICA' AND S_REGION = 'AMERICA' AND (year = 1997 OR year = 1998) AND (P_MFGR = 'MFGR#1' OR P_MFGR = 'MFGR#2')
-GROUP BY
-year,
-S_NATION,
-P_CATEGORY
-ORDER BY
-year ASC,
-S_NATION ASC,
-P_CATEGORY ASC; | 63 | 62 | 7.9 | 11.2 | 825 | 1432 |
-| Q4.3 | SELECT
-toYear(LO_ORDERDATE) AS year,
-S_CITY,
-P_BRAND,
-sum(LO_REVENUE - LO_SUPPLYCOST) AS profit
-FROM lineorder_flat
-WHERE S_NATION = 'UNITED STATES' AND (year = 1997 OR year = 1998) AND P_CATEGORY = 'MFGR#14'
-GROUP BY
-year,
-S_CITY,
-P_BRAND
-ORDER BY
-year ASC,
-S_CITY ASC,
-P_BRAND ASC; | 63 | 62 | 7.8 | 11.3 | 833 | 1454 |
+| S.No | Query | ClickHouse (ms)-60M rows | ReadySet (ms)-60M rows | ClickHouse Data Scaled Down(ms)-6M rows | ReadySet Data Scaled Down(ms)-6M rows | ClickHouse Data Scaled Up(ms)-600M rows | ReadySet Data Scaled Up(ms)-600M rows |
+| ---- | ----- | ------------------------ | ---------------------- | ------------------------------------- | ------------------------------------ | ----------------------------------- | --------------------------------- |
+| Q1.1 | SELECT sum(LO_EXTENDEDPRICE * LO_DISCOUNT) AS revenue FROM lineorder_flat WHERE toYear(LO_ORDERDATE) = 1993 AND LO_DISCOUNT BETWEEN 1 AND 3 AND LO_QUANTITY < 25; | 11.3 | 17.4 | 1.1 | 0.9 (Data is cached) | 107 | 221 |
+| Q1.2 | SELECT sum(LO_EXTENDEDPRICE * LO_DISCOUNT) AS revenue FROM lineorder_flat WHERE toYYYYMM(LO_ORDERDATE) = 199401 AND LO_DISCOUNT BETWEEN 4 AND 6 AND LO_QUANTITY BETWEEN 26 AND 35; | 9.9 | 12.3 | 1 | 0.8 | 105 | 207 |
+| Q1.3 | SELECT sum(LO_EXTENDEDPRICE * LO_DISCOUNT) AS revenue FROM lineorder_flat WHERE toISOWeek(LO_ORDERDATE) = 6 AND toYear(LO_ORDERDATE) = 1994 AND LO_DISCOUNT BETWEEN 5 AND 7 AND LO_QUANTITY BETWEEN 26 AND 35; | 10.1 | 11.2 | 1.1 | 0.8 | 107 | 213 |
+| Q2.1 | SELECT sum(LO_REVENUE), toYear(LO_ORDERDATE) AS year, P_BRAND FROM lineorder_flat WHERE P_CATEGORY = 'MFGR#12' AND S_REGION = 'AMERICA' GROUP BY year, P_BRAND ORDER BY year, P_BRAND; | 21 | 34 | 2.3 | 3.2 | 149 | 310 |
+| Q2.2 | SELECT sum(LO_REVENUE), toYear(LO_ORDERDATE) AS year, P_BRAND FROM lineorder_flat WHERE P_BRAND >= 'MFGR#2221' AND P_BRAND <= 'MFGR#2228' AND S_REGION = 'ASIA' GROUP BY year, P_BRAND ORDER BY year, P_BRAND; | 18 | 27 | 1.9 | 2.7 | 135 | 298 |
+| Q2.3 | SELECT sum(LO_REVENUE), toYear(LO_ORDERDATE) AS year, P_BRAND FROM lineorder_flat WHERE P_BRAND = 'MFGR#2239' AND S_REGION = 'EUROPE' GROUP BY year, P_BRAND ORDER BY year, P_BRAND; | 19 | 24 | 2.1 | 2.2 | 172 | 263 |
+| Q3.1 | SELECT C_NATION, S_NATION, toYear(LO_ORDERDATE) AS year, sum(LO_REVENUE) AS revenue FROM lineorder_flat WHERE C_REGION = 'ASIA' AND S_REGION = 'ASIA' AND year >= 1992 AND year <= 1997 GROUP BY C_NATION, S_NATION, year ORDER BY year ASC, revenue DESC; | 58 | 71 | 5.3 | 8.2 | 833 = 0.8s | 1744 = 1.7s |
+| Q3.2 | SELECT C_CITY, S_CITY, toYear(LO_ORDERDATE) AS year, sum(LO_REVENUE) AS revenue FROM lineorder_flat WHERE C_NATION = 'UNITED STATES' AND S_NATION = 'UNITED STATES' AND year >= 1992 AND year <= 1997 GROUP BY C_CITY, S_CITY, year ORDER BY year ASC, revenue DESC; | 51 | 68 | 5.4 | 7.9 | 811 = 0.8s | 1527 = 1.5s |
+| Q3.3 | SELECT C_CITY, S_CITY, toYear(LO_ORDERDATE) AS year, sum(LO_REVENUE) AS revenue FROM lineorder_flat WHERE (C_CITY = 'UNITED KI1' OR C_CITY = 'UNITED KI5') AND (S_CITY = 'UNITED KI1' OR S_CITY = 'UNITED KI5') AND year >= 1992 AND year <= 1997 GROUP BY C_CITY, S_CITY, year ORDER BY year ASC, revenue DESC; | 55 | 67 | 5.3 | 7.7 | 809 | 1552 |
+| Q3.4 | SELECT C_CITY, S_CITY, toYear(LO_ORDERDATE) AS year, sum(LO_REVENUE) AS revenue FROM lineorder_flat WHERE (C_CITY = 'UNITED KI1' OR C_CITY = 'UNITED KI5') AND (S_CITY = 'UNITED KI1' OR S_CITY = 'UNITED KI5') AND toYYYYMM(LO_ORDERDATE) = 199712 GROUP BY C_CITY, S_CITY, year ORDER BY year ASC, revenue DESC; | 57 | 67 | 5.3 | 7.9 | 810 | 1535 |
+| Q4.1 | SELECT toYear(LO_ORDERDATE) AS year, C_NATION, sum(LO_REVENUE - LO_SUPPLYCOST) AS profit FROM lineorder_flat WHERE C_REGION = 'AMERICA' AND S_REGION = 'AMERICA' AND (P_MFGR = 'MFGR#1' OR P_MFGR = 'MFGR#2') GROUP BY year, C_NATION ORDER BY year ASC, C_NATION ASC; | 61 | 64 | 7.2 | 11.5 | 846 | 1456 |
+| Q4.2 | SELECT toYear(LO_ORDERDATE) AS year, S_NATION, P_CATEGORY, sum(LO_REVENUE - LO_SUPPLYCOST) AS profit FROM lineorder_flat WHERE C_REGION = 'AMERICA' AND S_REGION = 'AMERICA' AND (year = 1997 OR year = 1998) AND (P_MFGR = 'MFGR#1' OR P_MFGR = 'MFGR#2') GROUP BY year, S_NATION, P_CATEGORY ORDER BY year ASC, S_NATION ASC, P_CATEGORY ASC; | 63 | 62 | 7.9 | 11.2 | 825 | 1432 |
+| Q4.3 | SELECT toYear(LO_ORDERDATE) AS year, S_CITY, P_BRAND, sum(LO_REVENUE - LO_SUPPLYCOST) AS profit FROM lineorder_flat WHERE S_NATION = 'UNITED STATES' AND (year = 1997 OR year = 1998) AND P_CATEGORY = 'MF
+
 
 As you can see, ClickHouse is significantly faster than ReadySet for both queries. This is because ClickHouse is designed for fast performance, while ReadySet is designed for ease of use.
 
